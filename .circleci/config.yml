@@ -23,8 +23,9 @@ jobs:
           command: |
             pip install -r requirements.txt
             pip install pytest pytest-cov
-      - run:
+      -       - run:
           name: Run unit tests and check coverage
+          command: python -m pytest tests/test_pricing.py --cov=app.pricing --cov-report=term-missing --cov-fail-under=70
           command: |
             python -m pytest tests/test_pricing.py 
               --cov=app.pricing 
