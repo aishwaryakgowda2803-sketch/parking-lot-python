@@ -51,3 +51,54 @@ workflows:
           requires:
             - lint
             - unit-tests
+
+
+
+version: 2.1
+
+jobs:
+  lint:
+    docker:
+      - image: cimg/python:3.12.11
+    steps:
+      - checkout
+      - run:
+          name: Install Ruff
+          command: pip install ruff
+      - run:
+          name: Check code quality
+          command: ruff check app tests
+
+  unit-tests:
+    docker:
+      - image: cimg/python:3.12.11
+    steps:
+      - checkout
+      - run:
+          name: Install dependencies
+          command: |
+            pip install -r requirements.txt
+            pip install pytest pytest-cov
+      - run:
+          name: Run unit tests and check coverage
+          command: python -m pytest tests/test_pricing.py --cov=app.pricing --cov-report=term-missing --cov-fail-under=70
+
+  docker-build:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run:
+          name: Build parking lot Docker image
+          command: docker build -t parking-lot-python:ci .
+
+workflows:
+  parking-lot-ci:
+    jobs:
+      - lint
+      - unit-tests
+      - docker-build:
+          requires:
+            - lint
+            - unit-tests
