@@ -1,3 +1,4 @@
+
 version: 2.1
 
 jobs:
@@ -27,6 +28,31 @@ jobs:
           name: Run unit tests and check coverage
           command: python -m pytest tests/test_pricing.py --cov=app.pricing --cov-report=term-missing --cov-fail-under=70
 
+  integration-tests:
+    machine: true
+    steps:
+      - checkout
+      - run:
+          name: Install Python dependencies
+          command: |
+            python3 -m venv .venv
+            . .venv/bin/activate
+            python -m pip install --upgrade pip
+            pip install -r requirements.txt
+            pip install pytest
+      - run:
+          name: Start application and services
+          command: docker compose up -d --build
+      - run:
+          name: Run integration tests
+          command: |
+            . .venv/bin/activate
+            python -m pytest tests/test_integration.py -q
+      - run:
+          name: Stop application and services
+          command: docker compose down -v
+          when: always
+
   docker-build:
     docker:
       - image: cimg/base:stable
@@ -42,7 +68,9 @@ workflows:
     jobs:
       - lint
       - unit-tests
+      - integration-tests
       - docker-build:
           requires:
             - lint
             - unit-tests
+            - integration-tests
