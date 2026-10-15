@@ -1,0 +1,54 @@
+services:
+  db:
+    image: postgres:16.4
+    environment:
+      POSTGRES_DB: parkinglot
+      POSTGRES_USER: parking
+      POSTGRES_PASSWORD: parkingpass_dev
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U parking -d parkinglot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.4.1-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  migrate:
+    image: postgres:16.4
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://parking:parkingpass_dev@db:5432/parkinglot
+    volumes:
+      - ./migrations:/migrations:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - 'set -e; psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 -f /migrations/001_schema.sql; psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 -f /migrations/002_seed.sql'
+
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      DATABASE_URL: postgresql://parking:parkingpass_dev@db:5432/parkinglot
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
