@@ -1,0 +1,25 @@
+﻿apiVersion: batch/v1
+kind: Job
+metadata:
+  name: parking-lot-migrate
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: postgres:16.4
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              until pg_isready -h postgres -U parking -d parkinglot; do sleep 2; done
+              psql "postgresql://parking:parkingpass_dev@postgres:5432/parkinglot" -v ON_ERROR_STOP=1 -f /migrations/001_schema.sql
+              psql "postgresql://parking:parkingpass_dev@postgres:5432/parkinglot" -v ON_ERROR_STOP=1 -f /migrations/002_seed.sql
+          volumeMounts:
+            - name: migrations
+              mountPath: /migrations
+      volumes:
+        - name: migrations
+          configMap:
+            name: parking-lot-migrations
